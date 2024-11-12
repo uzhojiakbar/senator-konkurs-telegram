@@ -5,9 +5,11 @@ const { startCommand } = require("./commands/start");
 const { adminStats } = require("./commands/adminStats");
 const { adminSend } = require("./commands/adminSend");
 const { registerUser } = require("./commands/register");
-const { userPanel } = require("./commands/userPanel");
+const { userPanel, handleUserCommands } = require("./commands/userPanel");
+
 const { adminPanel } = require("./commands/adminPanel");
 const { subscribeCheck } = require("./commands/subscribeCheck");
+const texts = require("./mock/texts");
 
 // MongoDB ulanish
 mongoose
@@ -18,12 +20,11 @@ mongoose
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 console.log("Bot faol! 👋");
 
-// Buyruqlarni qayta ishlash
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
-
   if (await subscribeCheck(bot, chatId)) {
-    startCommand(bot, msg);
+    bot.sendMessage(chatId, texts.competitionInfo, { parse_mode: "Markdown" });
+    userPanel(bot, chatId);
   }
 });
 
@@ -76,16 +77,26 @@ bot.on("callback_query", async (query) => {
 });
 
 // Foydalanuvchi paneli va admin paneli uchun umumiy tekshiruv
+// bot.on("message", async (msg) => {
+//   const chatId = msg.chat.id;
+
+//   if (await subscribeCheck(bot, chatId)) {
+//     const isAdmin = msg.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
+
+//     if (isAdmin) {
+//       adminPanel(bot, chatId); // Admin panelini ko'rsatish
+//     } else {
+//       userPanel(bot, chatId); // Foydalanuvchi panelini ko'rsatish
+//     }
+//   }
+// });
 bot.on("message", async (msg) => {
-  const chatId = msg.chat.id;
-
-  if (await subscribeCheck(bot, chatId)) {
+  if (await subscribeCheck(bot, msg.chat.id)) {
     const isAdmin = msg.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
-
     if (isAdmin) {
-      adminPanel(bot, chatId); // Admin panelini ko'rsatish
+      adminPanel(bot, msg.chat.id); // Admin panelini ko'rsatish
     } else {
-      userPanel(bot, chatId); // Foydalanuvchi panelini ko'rsatish
+      handleUserCommands(bot, msg);
     }
   }
 });
