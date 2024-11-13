@@ -27,10 +27,9 @@ async function subscribeCheck(bot, chatId) {
 
       await bot.sendMessage(
         chatId,
-        `👋 *ASSALOM ALEKUM! 🎉\n
-FALCON by SENATOR konkursiga xush kelibsiz!\n
-📢 Faqat 4 ta kanalga obuna bo‘ling va KONKURS ISHTIROKCHISIga aylaning!\n
-🔥 Yutug‘ingiz omadli bo‘lishini tilaymiz!
+        `👋 *FALCON by SENATOR KONKURS ! 
+
+✅ Kanallarga obuna boling va  tasdiqlash tugmasini bosing.
     *
 `,
         {
@@ -40,6 +39,21 @@ FALCON by SENATOR konkursiga xush kelibsiz!\n
           },
         }
       );
+      //       await bot.sendMessage(
+      //         chatId,
+      //         `👋 *ASSALOM ALEKUM! 🎉\n
+      // FALCON by SENATOR konkursiga xush kelibsiz!\n
+      // 📢 Faqat 4 ta kanalga obuna bo‘ling va KONKURS ISHTIROKCHISIga aylaning!\n
+      // 🔥 Yutug‘ingiz omadli bo‘lishini tilaymiz!
+      //     *
+      // `,
+      //         {
+      //           parse_mode: "Markdown",
+      //           reply_markup: {
+      //             inline_keyboard: buttons,
+      //           },
+      //         }
+      //       );
       return false;
     }
   } catch (error) {
