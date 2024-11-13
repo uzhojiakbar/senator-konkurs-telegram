@@ -1,15 +1,27 @@
 const texts = require("../mock/texts");
 const User = require("../models/User");
-const Participant = require("../models/Participants"); // Yangi qatnashuvchilar collection
+const Participant = require("../models/Participants");
 const { uploadParticipantToSheet } = require("./googleSheets");
+const { adminPanel } = require("./adminPanel");
 
 async function handleUserCommands(bot, msg) {
   const chatId = msg.chat.id;
   const command = msg.text;
 
+  // Foydalanuvchini ro'yxatdan o'tgan yoki o'tmaganligini tekshirish
+  const isRegistered = await User.findOne({ telegramId: chatId });
+  const isAdmin = chatId.toString() === process.env.ADMIN_TELEGRAM_ID;
+
+  if (!isRegistered && !isAdmin) {
+    bot.sendMessage(
+      chatId,
+      "Botdan foydalanish uchun avval ro'yxatdan o'ting va barcha kanallarga a'zo bo'ling."
+    );
+    return;
+  }
+
   switch (command) {
     case "🎁 Ishtirok etish":
-      // Qatnashuvchilar collection'ida foydalanuvchini tekshirish
       const existingParticipant = await Participant.findOne({
         telegramId: chatId,
       });
@@ -18,7 +30,6 @@ async function handleUserCommands(bot, msg) {
           parse_mode: "Markdown",
         });
       } else {
-        // Qatnashuvchilar collection'ga yangi foydalanuvchini qo'shish
         const newParticipant = new Participant({
           telegramId: chatId,
           username: msg.from.username,
@@ -26,8 +37,6 @@ async function handleUserCommands(bot, msg) {
           lastName: msg.from.last_name,
         });
         await newParticipant.save();
-
-        // Google Sheets'ga yuklash
         const uploadSuccess = await uploadParticipantToSheet(newParticipant);
         const message = uploadSuccess
           ? "Siz muvaffaqiyatli ishtirokchisiz va Google Sheets'ga qo'shildingiz!"
@@ -37,10 +46,9 @@ async function handleUserCommands(bot, msg) {
       break;
 
     case "📜 Qatnashuvchilar":
-      // Qatnashuvchilar ro'yxati uchun Google Sheets linkini yuborish
       bot.sendMessage(
         chatId,
-        `[Ishtirokchilar ro'yxatini bu yerdan ko'ring](https://docs.google.com/spreadsheets/d/1ehW2KmLyV8tupP1Z6Wxg3DsNv4rq05VhXFF6FHwNBbU/edit?usp=sharing)`,
+        `[Ishtirokchilar ro'yxatini bu yerdan ko'ring](${process.env.GOOGLE_SHEETS_URL})`,
         {
           parse_mode: "Markdown",
         }
@@ -48,7 +56,6 @@ async function handleUserCommands(bot, msg) {
       break;
 
     case "👤 Profil":
-      // Foydalanuvchi ma'lumotlarini yangilash va ko'rsatish
       const user = await User.findOneAndUpdate(
         { telegramId: chatId },
         {
@@ -76,19 +83,49 @@ async function handleUserCommands(bot, msg) {
       });
       break;
 
+    case "⚙️Panel":
+      if (isAdmin) {
+        adminPanel(bot, chatId);
+
+        // bot.sendMessage(chatId, "Admin paneli:", {
+        //   reply_markup: {
+        //     keyboard: [
+        //       [
+        //         "📊 Statistikani ko'rish",
+        //         "📤 Hamma foydalanuvchilarga xabar yuborish",
+        //       ],
+        //       ["🔙 Asosiy menyu"],
+        //     ],
+        //     resize_keyboard: true,
+        //     one_time_keyboard: true,
+        //   },
+        // });
+      }
+      break;
+
+    case "🔙 Asosiy menyu":
+      userPanel(bot, chatId);
+      break;
+
     default:
       bot.sendMessage(chatId, "Noma'lum buyruq.");
   }
 }
 
 function userPanel(bot, chatId) {
+  const isAdmin = chatId.toString() === process.env.ADMIN_TELEGRAM_ID;
+  const buttons = [
+    ["🎁 Ishtirok etish"],
+    ["📜 Qatnashuvchilar", "👤 Profil"],
+    ["🎁 Konkurs haqida"],
+  ];
+  if (isAdmin) {
+    buttons.push(["⚙️Panel"]);
+  }
+
   bot.sendMessage(chatId, "Kerakli tugmani tanlang:", {
     reply_markup: {
-      keyboard: [
-        ["🎁 Ishtirok etish"],
-        ["📜 Qatnashuvchilar", "👤 Profil"],
-        ["🎁 Konkurs haqida"],
-      ],
+      keyboard: buttons,
       resize_keyboard: true,
       one_time_keyboard: true,
     },

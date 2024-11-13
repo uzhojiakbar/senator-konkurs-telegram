@@ -7,9 +7,9 @@ const { adminSend } = require("./commands/adminSend");
 const { registerUser } = require("./commands/register");
 const { userPanel, handleUserCommands } = require("./commands/userPanel");
 
-const { adminPanel } = require("./commands/adminPanel");
 const { subscribeCheck } = require("./commands/subscribeCheck");
 const texts = require("./mock/texts");
+const User = require("./models/User");
 
 // MongoDB ulanish
 mongoose
@@ -20,11 +20,47 @@ mongoose
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 console.log("Bot faol! 👋");
 
-bot.onText(/\/start/, async (msg) => {
+bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
-  if (await subscribeCheck(bot, chatId)) {
-    bot.sendMessage(chatId, texts.competitionInfo, { parse_mode: "Markdown" });
-    userPanel(bot, chatId);
+
+  // Obuna va ro'yxatdan o'tish holatini tekshiramiz
+  const subscribed = await subscribeCheck(bot, chatId);
+  const isRegistered = await User.findOne({ telegramId: chatId });
+
+  if (!subscribed) {
+    // Obuna tugmalarini faqat bir marta yuborish
+    if (msg.text === "/start") {
+      await bot.sendMessage(
+        chatId,
+        "Majburiy kanallarga a'zo bo'lishingiz kerak!",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "➕ Kanalga a'zo bo'lish",
+                  url: "https://t.me/YOUR_CHANNEL",
+                },
+                { text: "☑️ Tekshirish", callback_data: "check_subscription" },
+              ],
+            ],
+          },
+        }
+      );
+    }
+  } else if (!isRegistered) {
+    // Ro'yxatdan o'tishni boshlash
+    startCommand(bot, msg);
+  } else {
+    // Ro'yxatdan o'tgan va obuna bo'lgan foydalanuvchilar uchun asosiy panel
+    if (msg.text === "/start") {
+      bot.sendMessage(chatId, texts.competitionInfo, {
+        parse_mode: "Markdown",
+      });
+      userPanel(bot, chatId);
+    } else {
+      handleUserCommands(bot, msg);
+    }
   }
 });
 
@@ -61,12 +97,7 @@ bot.on("callback_query", async (query) => {
         chatId,
         "Rahmat! Siz endi botdan to'liq foydalanishingiz mumkin."
       );
-      const isAdmin = chatId.toString() === process.env.ADMIN_TELEGRAM_ID;
-      if (isAdmin) {
-        adminPanel(bot, chatId); // Admin panelini ko'rsatish
-      } else {
-        userPanel(bot, chatId); // Foydalanuvchi panelini ko'rsatish
-      }
+      userPanel(bot, chatId); // Foydalanuvchi panelini ko'rsatish
     } else {
       bot.sendMessage(
         chatId,
@@ -90,13 +121,3 @@ bot.on("callback_query", async (query) => {
 //     }
 //   }
 // });
-bot.on("message", async (msg) => {
-  if (await subscribeCheck(bot, msg.chat.id)) {
-    const isAdmin = msg.from.id.toString() === process.env.ADMIN_TELEGRAM_ID;
-    if (isAdmin) {
-      adminPanel(bot, msg.chat.id); // Admin panelini ko'rsatish
-    } else {
-      handleUserCommands(bot, msg);
-    }
-  }
-});
