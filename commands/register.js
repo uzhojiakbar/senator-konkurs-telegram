@@ -1,4 +1,6 @@
+const texts = require("../mock/texts");
 const User = require("../models/User");
+const { userPanel } = require("./userPanel");
 
 async function registerUser(bot, msg) {
   const { contact } = msg;
@@ -14,7 +16,10 @@ async function registerUser(bot, msg) {
         lastName: msg.from.last_name,
       });
       await user.save();
-      bot.sendMessage(chatId, "Ro'yxatdan muvaffaqiyatli o'tdingiz!");
+      bot.sendMessage(chatId, texts.userRegisterSuccesful, {
+        parse_mode: "Markdown",
+      });
+      userPanel(bot, chatId);
     } catch (error) {
       console.error("Foydalanuvchini saqlashda xatolik:", error);
       bot.sendMessage(

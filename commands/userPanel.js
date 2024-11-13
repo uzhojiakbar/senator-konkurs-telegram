@@ -22,6 +22,10 @@ async function handleUserCommands(bot, msg) {
 
   switch (command) {
     case "🎁 Ishtirok etish":
+      bot.sendMessage(chatId, `*⌛️ Tekshirmoqdamiz*`, {
+        parse_mode: "Markdown",
+      });
+
       const existingParticipant = await Participant.findOne({
         telegramId: chatId,
       });
@@ -39,7 +43,7 @@ async function handleUserCommands(bot, msg) {
         await newParticipant.save();
         const uploadSuccess = await uploadParticipantToSheet(newParticipant);
         const message = uploadSuccess
-          ? "Siz muvaffaqiyatli ishtirokchisiz va Google Sheets'ga qo'shildingiz!"
+          ? "*🎉 Siz muvaffaqiyatli ishtirokchisiz va Google Sheets'ga qo'shildingiz! 🎉*"
           : "Siz muvaffaqiyatli ishtirokchisiz, lekin Google Sheets'ga yuklashda xatolik yuz berdi.";
         bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
       }
@@ -48,9 +52,21 @@ async function handleUserCommands(bot, msg) {
     case "📜 Qatnashuvchilar":
       bot.sendMessage(
         chatId,
-        `[Ishtirokchilar ro'yxatini bu yerdan ko'ring](${process.env.GOOGLE_SHEETS_URL})`,
+        `*✅ Ishtirokchilar Ro'yxatini pastdagi tugma orqali korishingiz mumkin.*`,
         {
           parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "📄 Ro'yxatni ko'rish",
+                  url:
+                    process.env.GOOGLE_SHEET ||
+                    "https://docs.google.com/spreadsheets/d/1ehW2KmLyV8tupP1Z6Wxg3DsNv4rq05VhXFF6FHwNBbU/edit?usp=sharing",
+                },
+              ],
+            ],
+          },
         }
       );
       break;
@@ -86,20 +102,6 @@ async function handleUserCommands(bot, msg) {
     case "⚙️Panel":
       if (isAdmin) {
         adminPanel(bot, chatId);
-
-        // bot.sendMessage(chatId, "Admin paneli:", {
-        //   reply_markup: {
-        //     keyboard: [
-        //       [
-        //         "📊 Statistikani ko'rish",
-        //         "📤 Hamma foydalanuvchilarga xabar yuborish",
-        //       ],
-        //       ["🔙 Asosiy menyu"],
-        //     ],
-        //     resize_keyboard: true,
-        //     one_time_keyboard: true,
-        //   },
-        // });
       }
       break;
 
@@ -123,7 +125,8 @@ function userPanel(bot, chatId) {
     buttons.push(["⚙️Panel"]);
   }
 
-  bot.sendMessage(chatId, "Kerakli tugmani tanlang:", {
+  bot.sendMessage(chatId, "*👇 Kerakli tugmani tanlang 👇:*", {
+    parse_mode: "Markdown",
     reply_markup: {
       keyboard: buttons,
       resize_keyboard: true,

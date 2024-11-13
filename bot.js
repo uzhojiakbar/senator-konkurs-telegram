@@ -30,23 +30,6 @@ bot.on("message", async (msg) => {
   if (!subscribed) {
     // Obuna tugmalarini faqat bir marta yuborish
     if (msg.text === "/start") {
-      await bot.sendMessage(
-        chatId,
-        "Majburiy kanallarga a'zo bo'lishingiz kerak!",
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: "➕ Kanalga a'zo bo'lish",
-                  url: "https://t.me/YOUR_CHANNEL",
-                },
-                { text: "☑️ Tekshirish", callback_data: "check_subscription" },
-              ],
-            ],
-          },
-        }
-      );
     }
   } else if (!isRegistered) {
     // Ro'yxatdan o'tishni boshlash
@@ -54,9 +37,6 @@ bot.on("message", async (msg) => {
   } else {
     // Ro'yxatdan o'tgan va obuna bo'lgan foydalanuvchilar uchun asosiy panel
     if (msg.text === "/start") {
-      bot.sendMessage(chatId, texts.competitionInfo, {
-        parse_mode: "Markdown",
-      });
       userPanel(bot, chatId);
     } else {
       handleUserCommands(bot, msg);

@@ -22,13 +22,19 @@ async function subscribeCheck(bot, chatId) {
         },
       ]);
       buttons.push([
-        { text: "☑️ Tekshirish", callback_data: "check_subscription" },
+        { text: "✔️ Tekshirish", callback_data: "check_subscription" },
       ]);
 
       await bot.sendMessage(
         chatId,
-        "Majburiy kanallarga a'zo bo'lishingiz kerak!",
+        `👋 *ASSALOM ALEKUM! 🎉\n
+FALCON by SENATOR konkursiga xush kelibsiz!\n
+📢 Faqat 4 ta kanalga obuna bo‘ling va KONKURS ISHTIROKCHISIga aylaning!\n
+🔥 Yutug‘ingiz omadli bo‘lishini tilaymiz!
+    *
+`,
         {
+          parse_mode: "Markdown",
           reply_markup: {
             inline_keyboard: buttons,
           },
