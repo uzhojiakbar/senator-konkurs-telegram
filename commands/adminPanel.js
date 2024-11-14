@@ -2,6 +2,8 @@ const User = require("../models/User");
 const Participant = require("../models/Participants");
 const Participants = require("../models/Participants");
 
+const callbackIds = {};
+
 async function adminPanel(bot, chatId) {
   bot.sendMessage(chatId, "🔧 *Admin paneliga xush kelibsiz!*", {
     parse_mode: "Markdown",
@@ -13,7 +15,6 @@ async function adminPanel(bot, chatId) {
             callback_data: "select_winner",
           },
         ],
-        [{ text: "👥 Ishtirokchilar", callback_data: "show_participants" }],
         [{ text: "📢 Majburiy kanallar", callback_data: "manage_channels" }],
         [{ text: "📊 Statistika", callback_data: "show_stats" }],
         [{ text: "✉️ Habar yuborish", callback_data: "send_broadcast" }],
@@ -22,14 +23,22 @@ async function adminPanel(bot, chatId) {
     },
   });
 
-  bot.once("callback_query", async (query) => {
+  bot.on("callback_query", async (query) => {
     const escapeMarkdown = (text) => {
       return text ? text.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, "\\$1") : "";
     };
 
+    if (callbackIds[query.id]) return;
+
+    // Yangi callback query ID'ni saqlab qo'yamiz
+    callbackIds[query.id] = true;
+
     const chatId = query.message.chat.id;
 
-    await bot.answerCallbackQuery(query.id);
+    await bot.answerCallbackQuery(query.id, {
+      text: "Sabr...",
+      show_alert: false,
+    });
 
     // Faqat admin uchun
     if (chatId.toString() !== process.env.ADMIN_TELEGRAM_ID) {
@@ -100,6 +109,7 @@ async function adminPanel(bot, chatId) {
 
           bot.sendMessage(chatId, winnerMessage, options);
         }
+        bot.deleteMessage(chatId, query.message.message_id);
         break;
 
       case "manage_channels":
@@ -123,6 +133,7 @@ async function adminPanel(bot, chatId) {
             ],
           },
         });
+        bot.deleteMessage(chatId, query.message.message_id);
         break;
 
       case "show_stats":
@@ -148,6 +159,7 @@ async function adminPanel(bot, chatId) {
             },
           }
         );
+        bot.deleteMessage(chatId, query.message.message_id);
         break;
 
       case "send_broadcast":
@@ -179,7 +191,52 @@ async function adminPanel(bot, chatId) {
           const type = broadcastTypeQuery.data;
           bot.answerCallbackQuery(broadcastTypeQuery.id);
 
-          bot.sendMessage(chatId, "Endi xabaringizni yuboring:");
+          bot.sendMessage(chatId, "Endi xabaringizni yuboring:", {
+            parse_mode: "Markdown",
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: "Bekor qilish",
+                    callback_data: "otmen_broadcast",
+                  },
+                ],
+              ],
+            },
+          });
+          bot.once("callback_query", async (query2) => {
+            await bot.answerCallbackQuery(query2.id);
+
+            if (query2.data === "otmen_broadcast") {
+              broadcast_mode = false;
+
+              bot.sendMessage(chatId, "<b>Habar yuborish bekor qilindi!</b>", {
+                parse_mode: "HTML",
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {
+                        text: "Admin menuga qaytish",
+                        callback_data: "back_to_panel",
+                      },
+                    ],
+                  ],
+                },
+              });
+
+              bot.once("callback_query", async (innerQ) => {
+                await bot.answerCallbackQuery(innerQ.id);
+
+                if (innerQ.data === "back_to_panel") {
+                  adminPanel(bot, chatId);
+                }
+                bot.deleteMessage(chatId, innerQ.message.message_id);
+              });
+
+              bot.deleteMessage(chatId, query2.message.message_id);
+              bot.deleteMessage(chatId, broadcastTypeQuery.message.message_id);
+            }
+          });
 
           bot.on("message", async (broadcastMsg) => {
             // const allUsers = await User.find({}, "telegramId");
@@ -190,13 +247,13 @@ async function adminPanel(bot, chatId) {
             ) {
               broadcast_mode = false;
 
-              // const allUsers = [
-              //   { telegramId: "5976825670" },
-              //   { telegramId: "2017025737" },
-              // ];
-              // console.log(allUsers);
+              const allUsers = [
+                { telegramId: "5976825670" },
+                { telegramId: "2017025737" },
+              ];
+              console.log(allUsers);
 
-              const allUsers = await User.find({}, "telegramId");
+              // const allUsers = await User.find({}, "telegramId");
               allUsers.forEach(async (user) => {
                 try {
                   if (type === "broadcast_normal") {
@@ -265,6 +322,8 @@ async function adminPanel(bot, chatId) {
             }
           });
         });
+        bot.deleteMessage(chatId, query.message.message_id);
+
         break;
       case "close_menu":
         bot.deleteMessage(chatId, query.message.message_id);
@@ -275,6 +334,8 @@ async function adminPanel(bot, chatId) {
         break;
 
       default:
+        bot.answerCallbackQuery(query.id, { text: "Noma'lum sorov." });
+
         break;
     }
   });

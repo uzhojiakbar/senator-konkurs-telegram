@@ -123,11 +123,8 @@ function userPanel(bot, chatId) {
   const buttons = [
     ["🎁 Ishtirok etish"],
     ["📜 Ishtirokchilar", "👤 Profil"],
-    ["🎁 Konkurs haqida"],
+    ["🎁 Konkurs haqida", isAdmin ? "⚙️Panel" : ""],
   ];
-  if (isAdmin) {
-    buttons.push(["⚙️Panel"]);
-  }
 
   bot.sendMessage(chatId, "*👇 Kerakli tugmani tanlang 👇:*", {
     parse_mode: "Markdown",
