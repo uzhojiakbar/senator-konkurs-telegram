@@ -151,6 +151,7 @@ async function adminPanel(bot, chatId) {
         break;
 
       case "send_broadcast":
+        broadcast_mode = true;
         bot.sendMessage(
           chatId,
           "Yuborish uchun quyidagi variantlardan birini tanlang:",
@@ -180,76 +181,88 @@ async function adminPanel(bot, chatId) {
 
           bot.sendMessage(chatId, "Endi xabaringizni yuboring:");
 
-          bot.once("message", async (broadcastMsg) => {
-            const allUsers = await User.find({}, "telegramId");
-            console.log(allUsers);
-
+          bot.on("message", async (broadcastMsg) => {
             // const allUsers = await User.find({}, "telegramId");
-            allUsers.forEach(async (user) => {
-              try {
-                if (type === "broadcast_normal") {
-                  // Media yoki oddiy xabarni aniqlash
-                  if (broadcastMsg.photo) {
-                    await bot.sendPhoto(
+
+            if (
+              broadcast_mode &&
+              broadcastMsg?.from?.id == process.env.ADMIN_TELEGRAM_ID
+            ) {
+              broadcast_mode = false;
+
+              // const allUsers = [
+              //   { telegramId: "5976825670" },
+              //   { telegramId: "2017025737" },
+              // ];
+              // console.log(allUsers);
+
+              const allUsers = await User.find({}, "telegramId");
+              allUsers.forEach(async (user) => {
+                try {
+                  if (type === "broadcast_normal") {
+                    // Media yoki oddiy xabarni aniqlash
+                    if (broadcastMsg.photo) {
+                      await bot.sendPhoto(
+                        user.telegramId,
+                        broadcastMsg.photo[0].file_id,
+                        {
+                          caption: broadcastMsg.caption || "",
+                          parse_mode: "HTML",
+                        }
+                      );
+                    } else if (broadcastMsg.video) {
+                      await bot.sendVideo(
+                        user.telegramId,
+                        broadcastMsg.video.file_id,
+                        {
+                          caption: broadcastMsg.caption || "",
+                          parse_mode: "HTML",
+                        }
+                      );
+                    } else if (broadcastMsg.audio) {
+                      await bot.sendAudio(
+                        user.telegramId,
+                        broadcastMsg.audio.file_id,
+                        {
+                          caption: broadcastMsg.caption || "",
+                          parse_mode: "HTML",
+                        }
+                      );
+                    } else if (broadcastMsg.document) {
+                      await bot.sendDocument(
+                        user.telegramId,
+                        broadcastMsg.document.file_id,
+                        {
+                          caption: broadcastMsg.caption || "",
+                          parse_mode: "HTML",
+                        }
+                      );
+                    } else {
+                      await bot.sendMessage(
+                        user.telegramId,
+                        broadcastMsg.text || "",
+                        { parse_mode: "HTML" }
+                      );
+                    }
+                  } else if (type === "broadcast_forward") {
+                    await bot.forwardMessage(
                       user.telegramId,
-                      broadcastMsg.photo[0].file_id,
-                      {
-                        caption: broadcastMsg.caption || "",
-                        parse_mode: "HTML",
-                      }
-                    );
-                  } else if (broadcastMsg.video) {
-                    await bot.sendVideo(
-                      user.telegramId,
-                      broadcastMsg.video.file_id,
-                      {
-                        caption: broadcastMsg.caption || "",
-                        parse_mode: "HTML",
-                      }
-                    );
-                  } else if (broadcastMsg.audio) {
-                    await bot.sendAudio(
-                      user.telegramId,
-                      broadcastMsg.audio.file_id,
-                      {
-                        caption: broadcastMsg.caption || "",
-                        parse_mode: "HTML",
-                      }
-                    );
-                  } else if (broadcastMsg.document) {
-                    await bot.sendDocument(
-                      user.telegramId,
-                      broadcastMsg.document.file_id,
-                      {
-                        caption: broadcastMsg.caption || "",
-                        parse_mode: "HTML",
-                      }
-                    );
-                  } else {
-                    await bot.sendMessage(
-                      user.telegramId,
-                      broadcastMsg.text || "",
-                      { parse_mode: "HTML" }
+                      chatId,
+                      broadcastMsg.message_id
                     );
                   }
-                } else if (type === "broadcast_forward") {
-                  await bot.forwardMessage(
-                    user.telegramId,
-                    chatId,
-                    broadcastMsg.message_id
+                } catch (error) {
+                  console.error(
+                    `Xatolik: ${user.telegramId} ga xabar yuborishda muammo!`
                   );
                 }
-              } catch (error) {
-                console.error(
-                  `Xatolik: ${user.telegramId} ga xabar yuborishda muammo!`
-                );
-              }
-            });
+              });
 
-            bot.sendMessage(
-              chatId,
-              "📨 Xabar barcha foydalanuvchilarga muvaffaqiyatli yuborildi."
-            );
+              bot.sendMessage(
+                chatId,
+                "📨 Xabar barcha foydalanuvchilarga muvaffaqiyatli yuborildi."
+              );
+            }
           });
         });
         break;
