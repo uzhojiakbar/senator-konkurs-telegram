@@ -1,16 +1,8 @@
-// const texts = require("../mocks/texts");
 const User = require("../models/User");
 const Participant = require("../models/Participants");
+const Participants = require("../models/Participants");
 
-// Admin panelini ko'rsatish
 async function adminPanel(bot, chatId) {
-  function escapeMarkdown(text) {
-    return text.replace(
-      /(\*|_|\[|\]|\(|\)|~|`|>|#|\+|-|=|\||{|}|\.|!)/g,
-      "\\$1"
-    );
-  }
-
   bot.sendMessage(chatId, "🔧 *Admin paneliga xush kelibsiz!*", {
     parse_mode: "Markdown",
     reply_markup: {
@@ -29,10 +21,17 @@ async function adminPanel(bot, chatId) {
       ],
     },
   });
-  // Tugmalarni boshqarish
-  bot.on("callback_query", async (query) => {
+
+  bot.once("callback_query", async (query) => {
+    const escapeMarkdown = (text) => {
+      return text ? text.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, "\\$1") : "";
+    };
+
     const chatId = query.message.chat.id;
 
+    await bot.answerCallbackQuery(query.id);
+
+    // Faqat admin uchun
     if (chatId.toString() !== process.env.ADMIN_TELEGRAM_ID) {
       return bot.answerCallbackQuery(query.id, {
         text: "Ushbu panel faqat admin uchun!",
@@ -43,61 +42,64 @@ async function adminPanel(bot, chatId) {
 
     switch (query.data) {
       case "select_winner":
-        function escapeMarkdown(text) {
-          return text
-            .replace(/[\\\`*\_\[\]\(\)\#\+\-\.\!\>]/g, "\\$&")
-            .replace(/\n/g, "\\n")
-            .replace(/\r/g, "\\r")
-            .replace(/\&/g, "\\&");
-        }
         const participants = await Participant.find({});
         if (participants.length === 0) {
           bot.sendMessage(chatId, "Ishtirokchilar topilmadi.");
         } else {
-          const winner =
+          // Tasodifiy g'olibni tanlaymiz
+          const randomParticipant =
             participants[Math.floor(Math.random() * participants.length)];
 
-          // Users modelidan telefon raqamini olish
-          const user = await User.findOne({ telegramId: winner.telegramId });
-          const winnerName = escapeMarkdown(winner.firstName || "Noma'lum");
-          const maskedPhoneNumber = user
-            ? escapeMarkdown(
-                user.phoneNumber.replace(/(\d{3})(\d{3})(\d{4})/, "$1***$3")
-              )
-            : "Telefon raqami mavjud emas";
-
-          // Profilga o'tish uchun tugma tayyorlash
-          const profileLink = winner.username
-            ? `https://t.me/${winner.username}`
-            : `tg://user?id=${winner.telegramId}`;
-          const showFullNumberLink = `/show_full_number_${winner.telegramId}`;
-
-          const winnerMessage = `🏆 *Yutgan foydalanuvchi:*\n*Ism:* ${winnerName}\n*Username:* @${
-            winner.username || "yo'q"
-          }\n*Telefon raqami:* ${maskedPhoneNumber}`;
-
-          bot.sendMessage(chatId, winnerMessage, {
-            parse_mode: "MarkdownV2",
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: "🔗 Profilga o‘tish", url: profileLink }],
-                [
-                  {
-                    text: "📞 Raqamni to'liq ko'rsatish",
-                    callback_data: showFullNumberLink,
-                  },
-                ],
-              ],
-            },
+          // Users kolleksiyasidan g'olibning to'liq ma'lumotlarini olamiz
+          const winner = await User.findOne({
+            telegramId: randomParticipant.telegramId,
           });
-        }
-        break;
 
-      case "show_participants":
-        bot.sendMessage(
-          chatId,
-          `Ishtirokchilar ro'yxati: ${process.env.GOOGLE_SHEETS_URL}`
-        );
+          if (!winner) {
+            bot.sendMessage(
+              chatId,
+              "G'olibning to'liq ma'lumotlarini topib bo'lmadi."
+            );
+            break;
+          }
+
+          // Telefon raqamining o'rtasini *** bilan almashtirish
+          const maskedPhone = winner.phoneNumber
+            ? `${winner.phoneNumber.slice(0, 3)}***${winner.phoneNumber.slice(
+                -2
+              )}`
+            : "Noma'lum";
+
+          // Profilga o'tish uchun linkni to'g'ri formatlash
+          const profileLink = winner.username
+            ? `@${escapeMarkdown(winner.username)}`
+            : `[Profilga o'tish](tg://user?id=${winner.telegramId})`;
+
+          // G'olib haqida ma'lumot
+          const winnerMessage =
+            `🏆 *Yutgan foydalanuvchi:*\nIsmi: ${escapeMarkdown(
+              winner.firstName || ""
+            )}\n` +
+            `Username: ${profileLink}\nTelefon: ${escapeMarkdown(maskedPhone)}`;
+
+          const options = {
+            parse_mode: "Markdown",
+            reply_markup: winner.username
+              ? {
+                  inline_keyboard: [
+                    [
+                      {
+                        text: "🔗 Profilga o'tish",
+                        url: `https://t.me/${winner.username}`,
+                      },
+                    ],
+                  ],
+                }
+              : undefined,
+          };
+
+          bot.sendMessage(chatId, winnerMessage, options);
+        }
         break;
 
       case "manage_channels":
@@ -125,25 +127,132 @@ async function adminPanel(bot, chatId) {
 
       case "show_stats":
         const userCount = await User.countDocuments();
-        bot.sendMessage(chatId, `📊 *Foydalanuvchilar soni:* ${userCount}`, {
-          parse_mode: "Markdown",
-        });
+        const Ishtirokchilarsoni = await Participants.countDocuments();
+
+        bot.sendMessage(
+          chatId,
+          `📊 *Statisika:*\n\n*Ro'yxatdan o'tganlar soni:* ${userCount} ta\n*Ishtirokchilar soni*: ${Ishtirokchilarsoni} ta\n\n*✅ Ishtirokchilar Ro'yxatini pastdagi tugma orqali korishingiz mumkin.*`,
+          {
+            parse_mode: "Markdown",
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: "📄 Ro'yxatni ko'rish",
+                    url:
+                      process.env.GOOGLE_SHEET ||
+                      "https://docs.google.com/spreadsheets/d/1ehW2KmLyV8tupP1Z6Wxg3DsNv4rq05VhXFF6FHwNBbU/edit?usp=sharing",
+                  },
+                ],
+              ],
+            },
+          }
+        );
         break;
 
       case "send_broadcast":
-        bot.sendMessage(chatId, "Yuborish uchun xabaringizni yozing.");
-        bot.once("message", async (broadcastMsg) => {
-          const allUsers = await User.find({});
-          allUsers.forEach((user) => {
-            bot.sendMessage(user.telegramId, broadcastMsg.text);
+        bot.sendMessage(
+          chatId,
+          "Yuborish uchun quyidagi variantlardan birini tanlang:",
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: "Oddiy habar yuborish",
+                    callback_data: "broadcast_normal",
+                  },
+                ],
+                [
+                  {
+                    text: "Forward habar yuborish",
+                    callback_data: "broadcast_forward",
+                  },
+                ],
+              ],
+            },
+          }
+        );
+
+        bot.once("callback_query", (broadcastTypeQuery) => {
+          const type = broadcastTypeQuery.data;
+          bot.answerCallbackQuery(broadcastTypeQuery.id);
+
+          bot.sendMessage(chatId, "Endi xabaringizni yuboring:");
+
+          bot.once("message", async (broadcastMsg) => {
+            const allUsers = await User.find({}, "telegramId");
+            console.log(allUsers);
+
+            // const allUsers = await User.find({}, "telegramId");
+            allUsers.forEach(async (user) => {
+              try {
+                if (type === "broadcast_normal") {
+                  // Media yoki oddiy xabarni aniqlash
+                  if (broadcastMsg.photo) {
+                    await bot.sendPhoto(
+                      user.telegramId,
+                      broadcastMsg.photo[0].file_id,
+                      {
+                        caption: broadcastMsg.caption || "",
+                        parse_mode: "HTML",
+                      }
+                    );
+                  } else if (broadcastMsg.video) {
+                    await bot.sendVideo(
+                      user.telegramId,
+                      broadcastMsg.video.file_id,
+                      {
+                        caption: broadcastMsg.caption || "",
+                        parse_mode: "HTML",
+                      }
+                    );
+                  } else if (broadcastMsg.audio) {
+                    await bot.sendAudio(
+                      user.telegramId,
+                      broadcastMsg.audio.file_id,
+                      {
+                        caption: broadcastMsg.caption || "",
+                        parse_mode: "HTML",
+                      }
+                    );
+                  } else if (broadcastMsg.document) {
+                    await bot.sendDocument(
+                      user.telegramId,
+                      broadcastMsg.document.file_id,
+                      {
+                        caption: broadcastMsg.caption || "",
+                        parse_mode: "HTML",
+                      }
+                    );
+                  } else {
+                    await bot.sendMessage(
+                      user.telegramId,
+                      broadcastMsg.text || "",
+                      { parse_mode: "HTML" }
+                    );
+                  }
+                } else if (type === "broadcast_forward") {
+                  await bot.forwardMessage(
+                    user.telegramId,
+                    chatId,
+                    broadcastMsg.message_id
+                  );
+                }
+              } catch (error) {
+                console.error(
+                  `Xatolik: ${user.telegramId} ga xabar yuborishda muammo!`
+                );
+              }
+            });
+
+            bot.sendMessage(
+              chatId,
+              "📨 Xabar barcha foydalanuvchilarga muvaffaqiyatli yuborildi."
+            );
           });
-          bot.sendMessage(
-            chatId,
-            "📨 Xabar barcha foydalanuvchilarga yuborildi."
-          );
         });
         break;
-
       case "close_menu":
         bot.deleteMessage(chatId, query.message.message_id);
         break;
@@ -153,7 +262,7 @@ async function adminPanel(bot, chatId) {
         break;
 
       default:
-        bot.answerCallbackQuery(query.id, { text: "Noma'lum buyruq." });
+        break;
     }
   });
 }

@@ -3,6 +3,7 @@ const User = require("../models/User");
 const Participant = require("../models/Participants");
 const { uploadParticipantToSheet } = require("./googleSheets");
 const { adminPanel } = require("./adminPanel");
+const Participants = require("../models/Participants");
 
 async function handleUserCommands(bot, msg) {
   const chatId = msg.chat.id;
@@ -49,10 +50,13 @@ async function handleUserCommands(bot, msg) {
       }
       break;
 
-    case "📜 Qatnashuvchilar":
+    case "📜 Ishtirokchilar":
+      const userCount = await User.countDocuments();
+      const Ishtirokchilarsoni = await Participants.countDocuments();
+
       bot.sendMessage(
         chatId,
-        `*✅ Ishtirokchilar Ro'yxatini pastdagi tugma orqali korishingiz mumkin.*`,
+        `📊 *Statisika:*\n\n*Ro'yxatdan o'tganlar soni:* ${userCount} ta\n*Ishtirokchilar soni*: ${Ishtirokchilarsoni} ta\n\n*✅ Ishtirokchilar Ro'yxatini pastdagi tugma orqali korishingiz mumkin.*`,
         {
           parse_mode: "Markdown",
           reply_markup: {
@@ -110,7 +114,7 @@ async function handleUserCommands(bot, msg) {
       break;
 
     default:
-      bot.sendMessage(chatId, "Noma'lum buyruq.");
+      break;
   }
 }
 
@@ -118,7 +122,7 @@ function userPanel(bot, chatId) {
   const isAdmin = chatId.toString() === process.env.ADMIN_TELEGRAM_ID;
   const buttons = [
     ["🎁 Ishtirok etish"],
-    ["📜 Qatnashuvchilar", "👤 Profil"],
+    ["📜 Ishtirokchilar", "👤 Profil"],
     ["🎁 Konkurs haqida"],
   ];
   if (isAdmin) {
